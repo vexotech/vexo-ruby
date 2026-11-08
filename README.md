@@ -12,7 +12,7 @@ Send events and identifies to [Vexo](https://vexo.co) from your Ruby backend: pu
 Add the gem to your `Gemfile`:
 
 ```ruby
-gem "vexo"
+gem "vexo", "~> 0.1.0"
 ```
 
 Or install it directly:
