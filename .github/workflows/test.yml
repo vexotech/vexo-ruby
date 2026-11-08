@@ -1,0 +1,19 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest supported Ruby, the newest, and one between. The official images match the local Docker runs.
+        ruby: ["3.0", "3.2", "4.0"]
+    container: ruby:${{ matrix.ruby }}-slim
+    steps:
+      - uses: actions/checkout@v4
+      - run: ruby -Ilib test/vexo_test.rb
