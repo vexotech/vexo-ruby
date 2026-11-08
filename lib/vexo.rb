@@ -73,7 +73,7 @@ module Vexo
 
       enqueue(message_id) do
         { "type" => "capture", "distinctId" => distinct_id.to_s, "event" => event.to_s,
-          "properties" => properties || {}, "timestamp" => epoch_millis(timestamp) }
+          "properties" => json_value(properties || {}), "timestamp" => epoch_millis(timestamp) }
       end
     end
 
@@ -81,7 +81,9 @@ module Vexo
     def identify(distinct_id: nil, traits: nil)
       return report(Error.new("vexo: identify needs a distinct_id")) if blank?(distinct_id)
 
-      enqueue(nil) { { "type" => "identify", "distinctId" => distinct_id.to_s, "traits" => traits || {} } }
+      enqueue(nil) do
+        { "type" => "identify", "distinctId" => distinct_id.to_s, "traits" => json_value(traits || {}) }
+      end
     end
 
     # Sends everything queued, blocking until the queue is empty. Send failures go to +on_error+.
@@ -137,7 +139,7 @@ module Vexo
         message["messageId"] = blank?(message_id) ? SecureRandom.uuid : message_id.to_s
         json = JSON.generate(message)
       rescue StandardError => e
-        # Only this message is dropped: a NaN, a circular reference, invalid UTF-8, or a timestamp that isn't a time.
+        # Only this message is dropped: a NaN, a circular reference, or a timestamp that isn't a time.
         return report(Error.new("vexo: message dropped: #{e.message}"))
       end
       return report(Error.new("vexo: message dropped, it is larger than 5 MB")) if
@@ -348,6 +350,37 @@ module Vexo
         raise ArgumentError, "timestamp must be a Time, a Date, epoch milliseconds, or an ISO 8601 String" unless time
 
         (time.to_r * 1000).to_i
+      end
+    end
+
+    # A copy of a property or trait value in the form every Vexo SDK sends (SPEC.md M11): a date-time as
+    # "2026-11-07T12:00:00.000Z", a BigDecimal in plain decimal notation, and a string's invalid UTF-8 as U+FFFD. Other
+    # values are left to JSON.generate, which sends a Date as "2026-11-07" and a Symbol as its name.
+    def json_value(value, parents = {}.compare_by_identity)
+      case value
+      when Hash, Array
+        raise ArgumentError, "a value contains itself" if parents.key?(value)
+
+        parents[value] = true
+        copy = if value.is_a?(Hash)
+                 value.to_h { |key, item| [json_value(key, parents), json_value(item, parents)] }
+               else
+                 value.map { |item| json_value(item, parents) }
+               end
+        parents.delete(value)
+        copy
+      when String
+        # The bytes of a binary String (Net::HTTP returns those) are read as UTF-8 too.
+        return value if value.valid_encoding? && value.encoding != Encoding::BINARY
+
+        value.dup.force_encoding(Encoding::UTF_8).scrub
+      else
+        time = utc_time(value)
+        return time.strftime("%Y-%m-%dT%H:%M:%S.%LZ") if time
+        return value unless defined?(::BigDecimal) && value.is_a?(::BigDecimal)
+        raise ArgumentError, "#{value} can't be sent as a JSON number" unless value.finite?
+
+        value.to_s("F")
       end
     end
 

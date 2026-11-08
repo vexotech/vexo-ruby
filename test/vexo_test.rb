@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
+require "bigdecimal"
 require "date"
 require "json"
 require "rbconfig"
@@ -212,11 +213,35 @@ class VexoTest < Minitest::Test
 
   def test_sends_values_json_cannot_encode_as_strings
     vexo = client
-    vexo.capture(distinct_id: "u", event: "e", properties: { at: NOON, on: Date.new(2026, 1, 2), plan: :pro })
+    vexo.capture(distinct_id: "u", event: "e", properties: {
+                   at: NOON, on: Date.new(2026, 1, 2), plan: :pro,
+                   offset: [Time.new(2026, 11, 7, 13, 0, Rational(123_456, 1_000_000), "+01:00")],
+                   date_time: { nested: DateTime.new(2026, 11, 7, 13, 0, 0, "+01:00") },
+                   tiny: BigDecimal("0.00000012345678901234567"), big: BigDecimal("1E+3")
+                 })
+    vexo.identify(distinct_id: "u", traits: { "since" => NOON })
     vexo.flush
 
-    assert_equal({ "at" => "2026-11-07 12:00:00 UTC", "on" => "2026-01-02", "plan" => "pro" },
+    identify_traits = @api.requests[0][:body]["batch"][1]["traits"]
+    assert_equal({ "at" => "2026-11-07T12:00:00.000Z", "on" => "2026-01-02", "plan" => "pro",
+                   "offset" => ["2026-11-07T12:00:00.123Z"], "date_time" => { "nested" => "2026-11-07T12:00:00.000Z" },
+                   "tiny" => "0.00000012345678901234567", "big" => "1000.0" },
                  @api.requests[0][:body]["batch"][0]["properties"])
+    assert_equal({ "since" => "2026-11-07T12:00:00.000Z" }, identify_traits)
+    assert_empty @errors
+  end
+
+  def test_replaces_invalid_utf8_with_u_fffd_and_sends_the_message
+    vexo = client
+    vexo.capture(distinct_id: "u", event: "e", properties: {
+                   (+"k\xff").force_encoding(Encoding::UTF_8) => (+"ok\xff").force_encoding(Encoding::UTF_8),
+                   "binary" => "caf\xC3\xA9 \xff".b
+                 })
+    vexo.flush
+
+    assert_equal({ "k\u{FFFD}" => "ok\u{FFFD}", "binary" => "café \u{FFFD}" },
+                 @api.requests[0][:body]["batch"][0]["properties"])
+    assert_empty @errors
   end
 
   def test_drops_only_the_message_that_cannot_be_serialized
@@ -227,7 +252,7 @@ class VexoTest < Minitest::Test
     vexo.capture(distinct_id: "u", event: "circular", properties: circular)
     vexo.capture(distinct_id: "u", event: "nan", properties: { amount: Float::NAN })
     vexo.capture(distinct_id: "u", event: "infinity", properties: { nested: [{ amount: -Float::INFINITY }] })
-    vexo.capture(distinct_id: "u", event: "bad_utf8", properties: { name: (+"\xff").force_encoding(Encoding::UTF_8) })
+    vexo.capture(distinct_id: "u", event: "decimal_nan", properties: { amount: BigDecimal("NaN") })
     vexo.capture(distinct_id: "u", event: "ok_too")
     vexo.flush
 

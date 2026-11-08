@@ -83,7 +83,7 @@ class RenewSubscriptionJob < ApplicationJob
     VEXO.capture(
       distinct_id: subscription.user.email,
       event: "subscription_renewed",
-      properties: { plan: subscription.plan, amount: subscription.price.to_s("F") },
+      properties: { plan: subscription.plan, amount: subscription.price },
       # A retried job sends the same message ID, so the event is stored once.
       message_id: "renewal-#{subscription.id}-#{subscription.current_period_start.to_i}"
     )
@@ -148,8 +148,8 @@ Stops the background thread and sends everything queued, for up to `shutdown_tim
 The client never raises from `capture` or `identify`. Failures go to `on_error` as a `Vexo::Error`:
 
 - A message without a `distinct_id` (or a capture without an `event`), or one queued after `shutdown`, is dropped and reported.
-- Values that JSON can't encode natively are sent as their `to_s` string: a `Time` as `"2026-11-07 12:00:00 UTC"`, a `Date` as `"2026-11-07"`, and a `Symbol` as its name. A `BigDecimal` is sent in Ruby's scientific notation (`"0.499e2"`) unless ActiveSupport is loaded; pass `amount.to_s("F")` for `"49.9"`.
-- A message that can't be serialized (a `NaN` or infinite number, a circular reference, a string that isn't valid UTF-8, or a `timestamp` of an unsupported type) or that is over 5 MB is dropped when you queue it; the rest of the queue is unaffected.
+- Values that JSON can't encode natively are sent as strings, in the form every Vexo SDK uses: a `Time`, `DateTime`, or `ActiveSupport::TimeWithZone` as an ISO 8601 string in UTC, such as `"2026-11-07T12:00:00.000Z"`; a `Date` as `"2026-11-07"`; a `BigDecimal` in plain decimal notation with all its digits (`"49.9"`, never `"0.499e2"`); and a `Symbol` as its name. Invalid UTF-8 in a string, or in the bytes of a binary string, is replaced with `U+FFFD`, and the message is sent.
+- A message that can't be serialized (a `NaN` or infinite number, including a `BigDecimal` one, a hash or array that contains itself, or a `timestamp` of an unsupported type) or that is over 5 MB is dropped when you queue it; the rest of the queue is unaffected.
 - A batch that still fails after the retries, or that the API rejects with a `4xx`, arrives with `batch` (the messages it held) and `status` (the HTTP status, when there was a response). The original exception of a network error is the error's `cause`. After that, the next batches get a single attempt until a request succeeds, so an unreachable API doesn't hold up your process.
 - A message the API dropped (for example, properties over 64 KB) arrives with `dropped`, a list of `{ message:, reason: }` hashes. Messages the API reports as `failed` are retried, and reported the same way if they still fail.
 - Messages still queued at the shutdown deadline arrive as one error with `batch`.
