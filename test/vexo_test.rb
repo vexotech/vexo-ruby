@@ -157,6 +157,20 @@ class VexoTest < Minitest::Test
     assert_equal "2026-11-07T12:00:00Z", iso
   end
 
+  def test_reads_a_time_timestamp_without_the_date_library
+    client
+    output = ruby(<<~RUBY, @api.host)
+      require "vexo"
+      abort "date is loaded" if defined?(Date)
+      vexo = Vexo::Client.new("test-key", host: ARGV[0], on_error: ->(error) { puts error.message })
+      vexo.capture(distinct_id: "u", event: "plain_time", timestamp: Time.at(#{NOON_MS / 1000}, in: "+02:00"))
+      vexo.shutdown
+    RUBY
+
+    assert_empty output
+    assert_equal NOON_MS, @api.requests[0][:body]["batch"][0]["timestamp"]
+  end
+
   def test_reports_bad_input_instead_of_raising
     vexo = client
     vexo.capture(event: "no_distinct_id")

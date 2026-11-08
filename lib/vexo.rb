@@ -342,13 +342,21 @@ module Vexo
       when Numeric then timestamp.to_i
       when String then timestamp
       else
-        raise ArgumentError, "timestamp must be a Time, a Date, epoch milliseconds, or an ISO 8601 String" unless
-          timestamp.respond_to?(:to_time)
+        # A Date (no time of day) is midnight UTC.
+        time = utc_time(timestamp) ||
+               (Time.utc(timestamp.year, timestamp.month, timestamp.day) if timestamp.respond_to?(:to_time))
+        raise ArgumentError, "timestamp must be a Time, a Date, epoch milliseconds, or an ISO 8601 String" unless time
 
-        # A Date is midnight UTC; a Time, DateTime, or ActiveSupport::TimeWithZone carries its own offset.
-        time = timestamp.respond_to?(:hour) ? timestamp.to_time : Time.utc(timestamp.year, timestamp.month, timestamp.day)
         (time.to_r * 1000).to_i
       end
+    end
+
+    # A Time, DateTime, or ActiveSupport::TimeWithZone as a Time in UTC; nil for any other value. A Time is checked by
+    # class: it has no to_time until something loads the date library.
+    def utc_time(value)
+      return value.getutc if value.is_a?(Time)
+
+      value.to_time.getutc if value.respond_to?(:hour) && value.respond_to?(:to_time)
     end
 
     def monotonic
