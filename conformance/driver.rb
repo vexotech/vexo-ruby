@@ -4,6 +4,7 @@
 #
 # Protocol: vexo-sdk-conformance/README.md. Run: python3 run.py --driver "ruby conformance/driver.rb"
 
+require "bigdecimal"
 require "json"
 require "time"
 require_relative "../lib/vexo"
@@ -34,9 +35,17 @@ scenario["steps"].each do |step|
   case step["op"]
   when "capture"
     properties = step["properties"]
-    # JSON.generate refuses invalid UTF-8 and NaN, so the SDK drops these messages when they're queued.
-    properties = (properties || {}).merge("poison" => (+"\xff").force_encoding(Encoding::UTF_8)) if step["poison"]
+    if step["poison"] # a hash that contains itself, which the SDK refuses
+      poison = {}
+      poison["self"] = poison
+      properties = (properties || {}).merge("poison" => poison)
+    end
     properties = (properties || {}).merge("nan" => Float::NAN) if step["nan"]
+    properties = (properties || {}).merge("dateTime" => Time.iso8601(step["dateTime"])) if step.key?("dateTime")
+    properties = (properties || {}).merge("decimal" => BigDecimal(step["decimal"])) if step.key?("decimal")
+    if step["invalidUnicode"]
+      properties = (properties || {}).merge("invalidUnicode" => (+"ok\xff").force_encoding(Encoding::UTF_8))
+    end
     timestamp = step.key?("at") ? Time.iso8601(step["at"]) : step["timestamp"]
     vexo.capture(distinct_id: step["distinctId"], event: step["event"], properties: properties, timestamp: timestamp,
                  message_id: step["messageId"])
