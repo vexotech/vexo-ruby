@@ -149,7 +149,7 @@ The client never raises from `capture` or `identify`. Failures go to `on_error` 
 
 - A message without a `distinct_id` (or a capture without an `event`), or one queued after `shutdown`, is dropped and reported.
 - Values that JSON can't encode natively are sent as their `to_s` string: a `Time` as `"2026-11-07 12:00:00 UTC"`, a `Date` as `"2026-11-07"`, and a `Symbol` as its name. A `BigDecimal` is sent in Ruby's scientific notation (`"0.499e2"`) unless ActiveSupport is loaded; pass `amount.to_s("F")` for `"49.9"`.
-- A message that can't be serialized (a `NaN`, a circular reference, a string that isn't valid UTF-8, or a `timestamp` of an unsupported type) or that is over 5 MB is dropped when you queue it; the rest of the queue is unaffected.
+- A message that can't be serialized (a `NaN` or infinite number, a circular reference, a string that isn't valid UTF-8, or a `timestamp` of an unsupported type) or that is over 5 MB is dropped when you queue it; the rest of the queue is unaffected.
 - A batch that still fails after the retries, or that the API rejects with a `4xx`, arrives with `batch` (the messages it held) and `status` (the HTTP status, when there was a response). The original exception of a network error is the error's `cause`. After that, the next batches get a single attempt until a request succeeds, so an unreachable API doesn't hold up your process.
 - A message the API dropped (for example, properties over 64 KB) arrives with `dropped`, a list of `{ message:, reason: }` hashes. Messages the API reports as `failed` are retried, and reported the same way if they still fail.
 - Messages still queued at the shutdown deadline arrive as one error with `batch`.

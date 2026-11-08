@@ -212,12 +212,13 @@ class VexoTest < Minitest::Test
     vexo.capture(distinct_id: "u", event: "ok")
     vexo.capture(distinct_id: "u", event: "circular", properties: circular)
     vexo.capture(distinct_id: "u", event: "nan", properties: { amount: Float::NAN })
+    vexo.capture(distinct_id: "u", event: "infinity", properties: { nested: [{ amount: -Float::INFINITY }] })
     vexo.capture(distinct_id: "u", event: "bad_utf8", properties: { name: (+"\xff").force_encoding(Encoding::UTF_8) })
     vexo.capture(distinct_id: "u", event: "ok_too")
     vexo.flush
 
     assert_equal [%w[ok ok_too]], @api.requests.map { |request| request[:body]["batch"].map { |m| m["event"] } }
-    assert_equal 3, @errors.size
+    assert_equal 4, @errors.size
     assert(@errors.all? { |error| error.message.start_with?("vexo: message dropped") })
   end
 

@@ -34,7 +34,9 @@ scenario["steps"].each do |step|
   case step["op"]
   when "capture"
     properties = step["properties"]
-    properties = (properties || {}).merge("poison" => Float::NAN) if step["poison"]
+    # JSON.generate refuses invalid UTF-8 and NaN, so the SDK drops these messages when they're queued.
+    properties = (properties || {}).merge("poison" => (+"\xff").force_encoding(Encoding::UTF_8)) if step["poison"]
+    properties = (properties || {}).merge("nan" => Float::NAN) if step["nan"]
     timestamp = step.key?("at") ? Time.iso8601(step["at"]) : step["timestamp"]
     vexo.capture(distinct_id: step["distinctId"], event: step["event"], properties: properties, timestamp: timestamp,
                  message_id: step["messageId"])
