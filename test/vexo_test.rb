@@ -237,6 +237,16 @@ class VexoTest < Minitest::Test
     wait_for_requests(1)
   end
 
+  def test_flush_interval_0_turns_the_timer_off
+    vexo = client(flush_interval: 0)
+    vexo.capture(distinct_id: "u", event: "a")
+    sleep(0.3)
+    assert_empty @api.requests, "flush_interval 0 sent without flush_at or flush"
+    vexo.flush
+
+    assert_equal %w[a], events(0)
+  end
+
   def test_sends_at_most_500_messages_in_a_request
     vexo = client(flush_at: 1000)
     600.times { |i| vexo.capture(distinct_id: "u", event: "e#{i}") }

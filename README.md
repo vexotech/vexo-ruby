@@ -120,7 +120,7 @@ Raises `ArgumentError` when `api_key` is missing.
 | --- | --- | --- |
 | `host` | `"https://api.vexo.co"` | API base URL. |
 | `flush_at` | `100` | Send a batch when this many messages are queued (1 to 500). |
-| `flush_interval` | `10.0` | Send whatever is queued every this many seconds. |
+| `flush_interval` | `10.0` | Send whatever is queued every this many seconds. `0` turns the timer off, so messages go out only on `flush_at`, `flush`, and `shutdown`. |
 | `max_retries` | `3` | Retries for network errors, `429`, and `5xx` responses. |
 | `max_queue_size` | `10_000` | Messages kept in memory; new messages are dropped once it's full. |
 | `timeout` | `10.0` | Request timeout in seconds, for each of connecting, writing, and reading. |

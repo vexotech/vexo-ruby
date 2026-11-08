@@ -49,7 +49,8 @@ module Vexo
       @headers = { "Content-Type" => "application/json", "X-Api-Key" => api_key.to_s,
                    "User-Agent" => "vexo-ruby/#{VERSION}" }
       @flush_at = flush_at.clamp(1, MAX_BATCH_SIZE)
-      @flush_interval = flush_interval
+      # 0 turns the interval timer off: nil makes the background thread wait for flush_at messages or shutdown.
+      @flush_interval = flush_interval if flush_interval.to_f.positive?
       @max_retries = max_retries
       @max_queue_size = max_queue_size
       @timeout = timeout
