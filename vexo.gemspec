@@ -11,5 +11,9 @@ Gem::Specification.new do |spec|
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.0"
   spec.files = Dir["lib/**/*.rb", "README.md", "LICENSE"]
-  spec.metadata = { "documentation_uri" => spec.homepage, "rubygems_mfa_required" => "true" }
+  spec.metadata = {
+    "documentation_uri" => spec.homepage,
+    "source_code_uri" => "https://github.com/vexotech/vexo-ruby",
+    "rubygems_mfa_required" => "true"
+  }
 end
