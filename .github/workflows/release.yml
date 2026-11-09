@@ -1,0 +1,29 @@
+name: release
+
+# Publishes to RubyGems.org when a GitHub release is published, through RubyGems trusted publishing (OIDC): the
+# repository holds no RubyGems API key.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  rubygems:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+      - name: Check that the tag matches the gem version
+        run: ruby -Ilib -rvexo/version -e 'exit ENV.fetch("GITHUB_REF_NAME").delete_prefix("v") == Vexo::VERSION'
+      - run: ruby -Ilib test/vexo_test.rb
+      - run: gem build vexo.gemspec
+      - uses: rubygems/configure-rubygems-credentials@v2
+      - run: gem push vexo-*.gem
